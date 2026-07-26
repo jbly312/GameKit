@@ -5,14 +5,11 @@ from sqlalchemy.ext.asyncio import  create_async_engine, async_sessionmaker
 
 engine = create_async_engine(settings.database_url)
 
-AsyncSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
+AsyncSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False, autoflush=False)
 
 class Base(DeclarativeBase):
     pass
 
 async def get_db():
-        db = AsyncSessionLocal()
-        try:
-            yield db
-        finally:
-           await db.close()
+    async with AsyncSessionLocal() as session:
+        yield session
