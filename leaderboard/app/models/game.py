@@ -4,7 +4,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 from sqlalchemy import String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
-import time
 
 
 class Game(Base):
@@ -29,6 +28,6 @@ class Game(Base):
         nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
     )
