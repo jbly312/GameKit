@@ -20,6 +20,8 @@ async def submit_match_result(
         game: Game = Depends(get_current_game),
         db: AsyncSession = Depends(get_db),
 ):
+    if body.winner_id == body.loser_id:
+        raise HTTPException(status_code=400, detail="winner_id and loser_id must be different")
     existing = await db.execute(
         select(Match).where(
             Match.game_id == game.id,
@@ -50,7 +52,6 @@ async def submit_match_result(
 
     winner.rating += RATING_DELTA
     loser.rating -= RATING_DELTA
-
     match = Match(
         game_id=game.id,
         winner_id=winner.id,

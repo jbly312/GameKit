@@ -38,3 +38,7 @@ class Player(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
     )
+    display_name: Mapped[str| None] = mapped_column(
+        String(50),
+        nullable=True
+    )

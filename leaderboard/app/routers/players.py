@@ -22,6 +22,7 @@ async def register(body:PlayerRegisterRequest,
         game_id = game.id,
         device_id= body.device_id,
         token_hash= token_hash,
+        display_name= body.display_name,
     )
     try:
         db.add(player)
@@ -29,5 +30,4 @@ async def register(body:PlayerRegisterRequest,
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=409, detail="Player already registered")
-    await db.commit()
     return PlayerRegisterResponse(player_id=player.id, player_token=raw_token)
