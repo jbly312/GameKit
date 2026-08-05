@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status
 from app.database import get_db
 from app.schemas import PlayerRegisterRequest,PlayerRegisterResponse
 from app.dependencies import get_current_game
@@ -7,6 +7,7 @@ from app.models.game import Game
 from app.security import generate_raw_token, hash_value
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from app.errors import ConflictError
 
 router = APIRouter(prefix="/players", tags=["players"])
 
@@ -29,5 +30,5 @@ async def register(body:PlayerRegisterRequest,
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(status_code=409, detail="Player already registered")
+        raise ConflictError("Device already registered for this game")
     return PlayerRegisterResponse(player_id=player.id, player_token=raw_token)

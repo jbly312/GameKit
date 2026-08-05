@@ -17,6 +17,7 @@ async def test_leaderboard_order(client,game, auth_headers):
     assert items[1]["rating"] == 970
     assert items[1]["display_name"] == "Pik"
 
-async def test_leaderboard_limit(client,auth_headers,game):
-    r = await client.get('/leaderboard?limit=101',headers=auth_headers)
+async def test_leaderboard_limit(client, auth_headers, game):
+    r = await client.get('/leaderboard?limit=101', headers=auth_headers)
     assert r.status_code == 422
+    assert r.json()["error"]["code"] == "VALIDATION_ERROR"

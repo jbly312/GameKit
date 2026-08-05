@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,7 +8,7 @@ from app.models.game import Game
 from app.models.player import Player
 from app.models.match import Match
 from app.schemas import MatchResultRequest, MatchResultResponse
-
+from app.errors import ValidationError, NotFoundError
 router = APIRouter(prefix="/matches", tags=["matches"])
 
 RATING_DELTA = 30
@@ -21,7 +21,7 @@ async def submit_match_result(
         db: AsyncSession = Depends(get_db),
 ):
     if body.winner_id == body.loser_id:
-        raise HTTPException(status_code=400, detail="winner_id and loser_id must be different")
+        raise ValidationError("	winner_id and loser_id must be different")
     existing = await db.execute(
         select(Match).where(
             Match.game_id == game.id,
@@ -45,7 +45,7 @@ async def submit_match_result(
     players = {p.id: p for p in result.scalars().all()}
 
     if body.winner_id not in players or body.loser_id not in players:
-        raise HTTPException(status_code=404, detail="Player not found")
+        raise NotFoundError("Player not found in this game")
 
     winner = players[body.winner_id]
     loser = players[body.loser_id]
