@@ -21,7 +21,7 @@ async def submit_match_result(
         db: AsyncSession = Depends(get_db),
 ):
     if body.winner_id == body.loser_id:
-        raise ValidationError("	winner_id and loser_id must be different")
+        raise ValidationError("winner_id and loser_id must be different")
     existing = await db.execute(
         select(Match).where(
             Match.game_id == game.id,
