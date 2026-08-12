@@ -1,5 +1,7 @@
 import uuid
 import enum
+
+from alembic.operations.toimpl import create_constraint
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime, timezone, timedelta
 from app.database import Base
@@ -55,7 +57,7 @@ class Match(Base):
     )
 
     status: Mapped[MatchStatus] = mapped_column(
-        SAEnum(MatchStatus, native_enum=False, length=20),
+        SAEnum(MatchStatus, create_constraint=True, native_enum=False, length=20),
         default=MatchStatus.PENDING,
         nullable=False,
         index=True,

@@ -9,7 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-
+from alembic.operations.toimpl import create_constraint
 
 # revision identifiers, used by Alembic.
 revision: str = 'b3dd921816fe'
@@ -30,7 +30,9 @@ def upgrade() -> None:
         sa.Column('winner_rating_after', sa.Float(), nullable=True),
         sa.Column('loser_rating_after', sa.Float(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-        sa.Column('status', sa.String(length=20), nullable=False),   # см. ниже
+        sa.Column('status', sa.Enum('PENDING', 'CONFIRMED', 'DISPUTED', 'EXPIRED',
+                                    name='matchstatus', native_enum=False,create_constraint=True, length=20),
+                                    nullable=False),
         sa.Column('submitted_by_id', sa.Integer(), nullable=False),
         sa.Column('confirmed_by_id', sa.Integer(), nullable=True),
         sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),

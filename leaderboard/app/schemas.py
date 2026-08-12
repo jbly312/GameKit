@@ -1,6 +1,7 @@
 from typing import List
 
 from pydantic import BaseModel
+from app.models.match import MatchStatus
 
 class PlayerRegisterRequest(BaseModel):
     device_id: str
@@ -15,8 +16,9 @@ class MatchResultRequest(BaseModel):
 
 class MatchResultResponse(BaseModel):
     match_id: int
-    winner_rating: float
-    loser_rating: float
+    status: MatchStatus
+    winner_rating: float| None = None
+    loser_rating: float| None = None
 
 class LeaderboardEntry(BaseModel):
     rank: int
@@ -28,3 +30,6 @@ class LeaderboardResponse(BaseModel):
     items: List[LeaderboardEntry]
     limit: int
     offset: int
+
+class MatchConfirmRequest(BaseModel):
+    accept: bool

@@ -21,3 +21,19 @@ class ConflictError(ToolkitError):
 class ValidationError(ToolkitError):
     status_code = 400
     code = "VALIDATION_ERROR"
+
+class MatchNotFoundError(ToolkitError):
+    status_code = 404
+    code = "MATCH_NOT_FOUND"
+
+class NotAParticipantError(ToolkitError):
+    status_code = 403
+    code = "NOT_A_PARTICIPANT"
+
+class MatchAlreadyFinalizedError(ToolkitError):
+    status_code = 409
+    code = "MATCH_ALREADY_FINALIZED"
+    
+class MatchExpiredError(ToolkitError):
+    status_code = 409
+    code = "MATCH_EXPIRED"
