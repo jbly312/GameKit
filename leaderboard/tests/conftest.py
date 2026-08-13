@@ -86,4 +86,5 @@ def auth_headers():
 
 async def register(client, headers, device_id, display_name = None):
     r = await client.post('/players/register', headers=headers, json={"device_id": device_id, "display_name": display_name})
-    return r.json()["player_id"]
+    data = r.json()
+    return data["player_id"], data["player_token"]
