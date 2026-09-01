@@ -24,6 +24,7 @@ TEST_DATABASE_URL = (
 ADMIN_DSN = f"postgres://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/postgres"
 
 TEST_API_KEY = "test-api-key"
+OTHER_API_KEY = "other-api-key"
 
 @pytest.fixture(scope="session", autouse=True)
 def create_test_database():
@@ -80,11 +81,62 @@ async def game(db_session):
     return g
 
 
+@pytest_asyncio.fixture
+async def other_game(db_session):
+    g = Game(
+        name="Other Game",
+        api_key=OTHER_API_KEY,
+        api_secret_hash=hash_value("other-secret"),
+    )
+    db_session.add(g)
+    await db_session.commit()
+    return g
+
+
 @pytest.fixture
 def auth_headers():
     return {"x-api-key": TEST_API_KEY}
+
+
+@pytest.fixture
+def other_auth_headers():
+    return {"x-api-key": OTHER_API_KEY}
 
 async def register(client, headers, device_id, display_name = None):
     r = await client.post('/players/register', headers=headers, json={"device_id": device_id, "display_name": display_name})
     data = r.json()
     return data["player_id"], data["player_token"]
+
+
+async def submit_match(client, headers, token, winner_id, loser_id, idempotency_key):
+    """Submit a match result on behalf of the player owning `token`."""
+    return await client.post(
+        "/matches/result",
+        headers={**headers, "X-Player-Token": token, "Idempotency-Key": idempotency_key},
+        json={"winner_id": winner_id, "loser_id": loser_id},
+    )
+
+
+async def confirm_match(client, headers, token, match_id, accept=True):
+    """Confirm (or dispute) a match on behalf of the player owning `token`."""
+    return await client.post(
+        f"/matches/{match_id}/confirm",
+        headers={**headers, "X-Player-Token": token},
+        json={"accept": accept},
+    )
+
+
+async def play_match(client, headers, winner, loser, idempotency_key):
+    """Full happy path: the winner submits, the loser confirms.
+
+    `winner` and `loser` are (player_id, player_token) pairs as returned by register().
+    Returns the confirm response.
+    """
+    winner_id, winner_token = winner
+    loser_id, loser_token = loser
+    submitted = await submit_match(
+        client, headers, winner_token, winner_id, loser_id, idempotency_key
+    )
+    return await confirm_match(
+        client, headers, loser_token, submitted.json()["match_id"], accept=True
+    )
