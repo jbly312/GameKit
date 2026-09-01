@@ -12,9 +12,9 @@ def error_code(response):
 
 
 async def ratings(client, headers):
-    """player_id -> rating, straight from the leaderboard."""
-    r = await client.get("/leaderboard", headers=headers)
-    return {item["player_id"]: item["rating"] for item in r.json()["items"]}
+    """player_id -> rating, straight from the rating board."""
+    r = await client.get("/boards/rating/top", headers=headers)
+    return {item["player_id"]: item["value"] for item in r.json()["items"]}
 
 
 # --- submitting a result -------------------------------------------------

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse
 
-from app.routers import players,matches,leaderboard
+from app.routers import players,matches,boards
 from app.errors import ToolkitError
 from fastapi.exceptions import RequestValidationError
 
@@ -12,7 +12,7 @@ app = FastAPI(
 )
 app.include_router(players.router)
 app.include_router(matches.router)
-app.include_router(leaderboard.router)
+app.include_router(boards.router)
 @app.get("/health")
 async def health():
     return {"status": "ok",

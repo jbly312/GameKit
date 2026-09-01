@@ -14,5 +14,5 @@ async def test_register_duplicate(client,game, auth_headers):
 
 async def test_unauthorized(client,game):
     headers = {"x-api-key": "wrong"}
-    r = await client.get('/leaderboard', headers=headers)
+    r = await client.get('/boards/rating/top', headers=headers)
     assert r.status_code == 401

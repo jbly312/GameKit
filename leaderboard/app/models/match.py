@@ -1,7 +1,6 @@
 import uuid
 import enum
 
-from alembic.operations.toimpl import create_constraint
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime, timezone, timedelta
 from app.database import Base

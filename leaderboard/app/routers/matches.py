@@ -49,7 +49,10 @@ async def submit_match_result(
     )
     players = {p.id: p for p in result.scalars().all()}
     if len(players) != 2:
-        raise NotFoundError(f"Player with id {set(ids) - players.keys()} not found")
+        raise NotFoundError(
+            f"Player with id {set(ids) - players.keys()} not found",
+            code="PLAYER_NOT_FOUND",
+        )
     winner = players[body.winner_id]
     loser = players[body.loser_id]
     match = Match(

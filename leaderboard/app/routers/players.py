@@ -30,5 +30,8 @@ async def register(body:PlayerRegisterRequest,
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise ConflictError("Device already registered for this game")
+        raise ConflictError(
+            "Device already registered for this game",
+            code="DEVICE_ALREADY_REGISTERED",
+        )
     return PlayerRegisterResponse(player_id=player.id, player_token=raw_token)
