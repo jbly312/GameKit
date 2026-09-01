@@ -1,0 +1,11 @@
+SQLAlchemy==2.0.51
+FastAPI==0.140.0
+Alembic==1.18.5
+pytest==9.1.1
+pydantic==2.13.4
+httpx==0.28.1
+Uvicorn==0.51.0
+asyncpg==0.31.0
+python-dotenv>=1.0.0
+pydantic-settings==2.14.2
+pytest-asyncio==1.4.0
