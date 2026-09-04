@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.game import Game
 from app.models.player import Player
-from app.errors import UnauthorizedGameError
+from app.errors import UnauthorizedGameError, UnauthorizedPlayerError
 
 from app.security import hash_value
 
@@ -34,5 +34,5 @@ async def get_current_player(
     )
     player = result.scalar_one_or_none()
     if player is None:
-        raise UnauthorizedGameError("Invalid player token")
+        raise UnauthorizedPlayerError("Invalid player token")
     return player

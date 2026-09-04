@@ -1,0 +1,49 @@
+diff --git a/leaderboard/app/dependencies.py b/leaderboard/app/dependencies.py
+index 021abf6..8929059 100644
+--- a/leaderboard/app/dependencies.py
++++ b/leaderboard/app/dependencies.py
+@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
+ from app.database import get_db
+ from app.models.game import Game
+ from app.models.player import Player
+-from app.errors import UnauthorizedGameError
++from app.errors import UnauthorizedGameError, UnauthorizedPlayerError
+ 
+ from app.security import hash_value
+ 
+@@ -34,5 +34,5 @@ async def get_current_player(
+     )
+     player = result.scalar_one_or_none()
+     if player is None:
+-        raise UnauthorizedGameError("Invalid player token")
++        raise UnauthorizedPlayerError("Invalid player token")
+     return player
+diff --git a/leaderboard/app/errors.py b/leaderboard/app/errors.py
+index c9ceab8..0cd0397 100644
+--- a/leaderboard/app/errors.py
++++ b/leaderboard/app/errors.py
+@@ -22,6 +22,11 @@ class UnauthorizedGameError(ToolkitError):
+     code = "UNAUTHORIZED_GAME"
+ 
+ 
++class UnauthorizedPlayerError(ToolkitError):
++    status_code = 401
++    code = "UNAUTHORIZED_PLAYER"
++
++
+ class NotFoundError(ToolkitError):
+     status_code = 404
+     code = "NOT_FOUND"
+diff --git a/leaderboard/tests/test_matches.py b/leaderboard/tests/test_matches.py
+index 07b0021..1e1b972 100644
+--- a/leaderboard/tests/test_matches.py
++++ b/leaderboard/tests/test_matches.py
+@@ -288,7 +288,7 @@ async def test_confirm_rejects_an_invalid_player_token(client, auth_headers, gam
+     )
+ 
+     assert confirmed.status_code == 401
+-    assert error_code(confirmed) == "UNAUTHORIZED_GAME"
++    assert error_code(confirmed) == "UNAUTHORIZED_PLAYER"
+ 
+ 
+ async def test_match_is_invisible_to_another_game(

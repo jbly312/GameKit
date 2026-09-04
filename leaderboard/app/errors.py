@@ -22,6 +22,11 @@ class UnauthorizedGameError(ToolkitError):
     code = "UNAUTHORIZED_GAME"
 
 
+class UnauthorizedPlayerError(ToolkitError):
+    status_code = 401
+    code = "UNAUTHORIZED_PLAYER"
+
+
 class NotFoundError(ToolkitError):
     status_code = 404
     code = "NOT_FOUND"

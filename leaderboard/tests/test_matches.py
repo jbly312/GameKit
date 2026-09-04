@@ -288,7 +288,7 @@ async def test_confirm_rejects_an_invalid_player_token(client, auth_headers, gam
     )
 
     assert confirmed.status_code == 401
-    assert error_code(confirmed) == "UNAUTHORIZED_GAME"
+    assert error_code(confirmed) == "UNAUTHORIZED_PLAYER"
 
 
 async def test_match_is_invisible_to_another_game(
