@@ -1,16 +1,32 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.game import Game
+
 from app.models.board import Board, BoardType, SortDirection
-from app.security import generate_raw_token, hash_value
+from app.models.game import Game
+from toolkit_core.games import create_game as create_game_core
 
 
-async def create_game(db: AsyncSession, name: str, api_key: str | None = None) -> tuple[Game, str, str]:
-    raw_key = api_key or generate_raw_token()
-    raw_secret = generate_raw_token()
-    game = Game(name=name, api_key=raw_key, api_secret_hash = hash_value(raw_secret))
-    db.add(game)
-    await db.flush()
-    db.add(Board(game_id=game.id, key="rating", name="Rating", type = BoardType.RATING, sort_direction = SortDirection.DESC))
-    await db.commit()
+async def _add_rating_board(db: AsyncSession, game: Game) -> None:
+    """Leaderboard's half of registration.
 
-    return game, raw_key, raw_secret
+    Every game owns a rating board; without it the 1v1 rating has no endpoint
+    to be read from. It is added inside the registration transaction, so a game
+    can never exist without one.
+    """
+    db.add(
+        Board(
+            game_id=game.id,
+            key="rating",
+            name="Rating",
+            type=BoardType.RATING,
+            sort_direction=SortDirection.DESC,
+        )
+    )
+
+
+async def create_game(
+    db: AsyncSession, name: str, api_key: str | None = None
+) -> tuple[Game, str, str]:
+    """Register a game. Returns it with its raw api_key and api_secret."""
+    return await create_game_core(
+        db, Game, name, api_key=api_key, after_create=_add_rating_board
+    )

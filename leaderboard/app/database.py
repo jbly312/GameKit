@@ -1,14 +1,20 @@
-from app.config import settings
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.ext.asyncio import  create_async_engine, async_sessionmaker
 
-engine = create_async_engine(settings.database_url)
+from app.config import settings
+from toolkit_core.database import make_engine, make_get_db, make_session_factory
 
-AsyncSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False, autoflush=False)
+engine = make_engine(settings.database_url)
+
+AsyncSessionLocal = make_session_factory(engine)
+
 
 class Base(DeclarativeBase):
-    pass
+    """This service's metadata.
 
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
+    Stays here rather than in toolkit_core: alembic autogenerate reads
+    Base.metadata, and a Base shared between services would let one service's
+    migration create another service's tables.
+    """
+
+
+get_db = make_get_db(AsyncSessionLocal)

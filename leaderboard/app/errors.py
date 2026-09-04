@@ -1,45 +1,33 @@
-class ToolkitError(Exception):
-    """Base for every error the API reports in the shared `error` envelope.
+"""Leaderboard's error codes, on top of the shared envelope.
 
-    `code` is what a client branches on, so it describes the situation, not the
-    class. A generic class may therefore be raised with a specific code:
+The generic classes come from toolkit_core; what is defined here is what only
+this service can hit.
+"""
 
-        raise ConflictError("...", code="DEVICE_ALREADY_REGISTERED")
-    """
+from toolkit_core.errors import (
+    ConflictError,
+    NotFoundError,
+    ToolkitError,
+    UnauthorizedGameError,
+    UnauthorizedPlayerError,
+    ValidationError,
+)
 
-    status_code: int = 500
-    code: str = "INTERNAL_SERVER_ERROR"
-
-    def __init__(self, message: str, code: str | None = None):
-        self.message = message
-        if code is not None:
-            self.code = code
-        super().__init__(message)
-
-
-class UnauthorizedGameError(ToolkitError):
-    status_code = 401
-    code = "UNAUTHORIZED_GAME"
-
-
-class UnauthorizedPlayerError(ToolkitError):
-    status_code = 401
-    code = "UNAUTHORIZED_PLAYER"
-
-
-class NotFoundError(ToolkitError):
-    status_code = 404
-    code = "NOT_FOUND"
-
-
-class ConflictError(ToolkitError):
-    status_code = 409
-    code = "CONFLICT"
-
-
-class ValidationError(ToolkitError):
-    status_code = 400
-    code = "VALIDATION_ERROR"
+__all__ = [
+    "BoardAlreadyExistsError",
+    "BoardNotFoundError",
+    "BoardTypeMismatchError",
+    "ConflictError",
+    "MatchAlreadyFinalizedError",
+    "MatchExpiredError",
+    "MatchNotFoundError",
+    "NotAParticipantError",
+    "NotFoundError",
+    "ToolkitError",
+    "UnauthorizedGameError",
+    "UnauthorizedPlayerError",
+    "ValidationError",
+]
 
 
 class MatchNotFoundError(ToolkitError):
