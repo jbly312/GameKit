@@ -8,10 +8,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.database import Base, get_db
+from app.games import create_game
 from app.main import app
-from app.models.board import Board, BoardType, SortDirection
-from app.models.game import Game
-from app.security import hash_value
 
 TEST_DB_NAME = os.getenv("TEST_DB_NAME","leaderboard_test")
 DB_USER = os.getenv("TEST_DB_USER","leaderboard")
@@ -70,38 +68,21 @@ async def client(db_session):
     app.dependency_overrides.clear()
 
 
-async def _create_game(db_session, name, api_key, secret):
-    """A game plus its rating board.
+@pytest_asyncio.fixture
+async def game(db_session):
+    """Built by the real registration code, so the tests exercise what ships.
 
-    Every game owns a 'rating' board — the migration creates one for each
-    existing game, and game registration must do the same. Without it the 1v1
-    rating has no endpoint to be read from.
+    Every game owns a 'rating' board; keeping that invariant in create_game
+    rather than here means the fixture cannot drift from production.
     """
-    g = Game(name=name, api_key=api_key, api_secret_hash=hash_value(secret))
-    db_session.add(g)
-    await db_session.commit()
-
-    db_session.add(
-        Board(
-            game_id=g.id,
-            key="rating",
-            name="Rating",
-            type=BoardType.RATING,
-            sort_direction=SortDirection.DESC,
-        )
-    )
-    await db_session.commit()
+    g, _, _ = await create_game(db_session, "Test Game", api_key=TEST_API_KEY)
     return g
 
 
 @pytest_asyncio.fixture
-async def game(db_session):
-    return await _create_game(db_session, "Test Game", TEST_API_KEY, "test-secret")
-
-
-@pytest_asyncio.fixture
 async def other_game(db_session):
-    return await _create_game(db_session, "Other Game", OTHER_API_KEY, "other-secret")
+    g, _, _ = await create_game(db_session, "Other Game", api_key=OTHER_API_KEY)
+    return g
 
 
 @pytest.fixture
