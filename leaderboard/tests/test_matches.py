@@ -12,9 +12,9 @@ def error_code(response):
 
 
 async def ratings(client, headers):
-    """player_id -> rating, straight from the leaderboard."""
-    r = await client.get("/leaderboard", headers=headers)
-    return {item["player_id"]: item["rating"] for item in r.json()["items"]}
+    """player_id -> rating, straight from the rating board."""
+    r = await client.get("/boards/rating/top", headers=headers)
+    return {item["player_id"]: item["value"] for item in r.json()["items"]}
 
 
 # --- submitting a result -------------------------------------------------
@@ -288,7 +288,7 @@ async def test_confirm_rejects_an_invalid_player_token(client, auth_headers, gam
     )
 
     assert confirmed.status_code == 401
-    assert error_code(confirmed) == "UNAUTHORIZED_GAME"
+    assert error_code(confirmed) == "UNAUTHORIZED_PLAYER"
 
 
 async def test_match_is_invisible_to_another_game(
@@ -307,3 +307,60 @@ async def test_match_is_invisible_to_another_game(
 
     assert confirmed.status_code == 404
     assert error_code(confirmed) == "MATCH_NOT_FOUND"
+
+
+# --- idempotency under concurrency ----------------------------------------
+
+
+async def test_race_on_idempotency_key_returns_the_existing_match(
+    client, auth_headers, game, monkeypatch
+):
+    """Two retries of one submission race; the loser must not surface a 500.
+
+    The lookup is forced to miss once, which is what a concurrent request sees
+    before the winner commits: the INSERT then hits the unique constraint.
+    """
+    from app.routers import matches as matches_router
+
+    winner_id, winner_token = await register(client, auth_headers, "device-35")
+    loser_id, _ = await register(client, auth_headers, "device-36")
+
+    first = await submit_match(
+        client, auth_headers, winner_token, winner_id, loser_id, "race-key"
+    )
+
+    real_lookup = matches_router._match_for_key
+    calls = {"n": 0}
+
+    async def missing_on_first_call(db, game_id, idempotency_key):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return None
+        return await real_lookup(db, game_id, idempotency_key)
+
+    monkeypatch.setattr(matches_router, "_match_for_key", missing_on_first_call)
+
+    second = await submit_match(
+        client, auth_headers, winner_token, winner_id, loser_id, "race-key"
+    )
+
+    assert second.status_code == 201
+    assert second.json()["match_id"] == first.json()["match_id"]
+
+
+async def test_key_of_another_pair_is_not_replayed(client, auth_headers, game):
+    """A key already used by a match the caller is not in must not leak it."""
+    winner_id, winner_token = await register(client, auth_headers, "device-37")
+    loser_id, _ = await register(client, auth_headers, "device-38")
+    other_id, other_token = await register(client, auth_headers, "device-39")
+    third_id, _ = await register(client, auth_headers, "device-40")
+
+    await submit_match(
+        client, auth_headers, winner_token, winner_id, loser_id, "shared-key"
+    )
+    stolen = await submit_match(
+        client, auth_headers, other_token, other_id, third_id, "shared-key"
+    )
+
+    assert stolen.status_code == 403
+    assert error_code(stolen) == "IDEMPOTENCY_KEY_CONFLICT"

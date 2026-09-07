@@ -1,8 +1,5 @@
-import secrets
-import hashlib
+"""Re-exported from toolkit_core so existing imports keep working."""
 
-def generate_raw_token() -> str:
-    return secrets.token_urlsafe(32)
+from toolkit_core.security import generate_raw_token, hash_value
 
-def hash_value(raw: str) -> str:
-    return hashlib.sha256(raw.encode()).hexdigest()
+__all__ = ["generate_raw_token", "hash_value"]

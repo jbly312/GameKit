@@ -8,9 +8,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.database import Base, get_db
+from app.games import create_game
 from app.main import app
-from app.models.game import Game
-from app.security import hash_value
 
 TEST_DB_NAME = os.getenv("TEST_DB_NAME","leaderboard_test")
 DB_USER = os.getenv("TEST_DB_USER","leaderboard")
@@ -71,25 +70,18 @@ async def client(db_session):
 
 @pytest_asyncio.fixture
 async def game(db_session):
-    g = Game(
-        name="Test Game",
-        api_key=TEST_API_KEY,
-        api_secret_hash=hash_value("test-secret"),
-    )
-    db_session.add(g)
-    await db_session.commit()
+    """Built by the real registration code, so the tests exercise what ships.
+
+    Every game owns a 'rating' board; keeping that invariant in create_game
+    rather than here means the fixture cannot drift from production.
+    """
+    g, _, _ = await create_game(db_session, "Test Game", api_key=TEST_API_KEY)
     return g
 
 
 @pytest_asyncio.fixture
 async def other_game(db_session):
-    g = Game(
-        name="Other Game",
-        api_key=OTHER_API_KEY,
-        api_secret_hash=hash_value("other-secret"),
-    )
-    db_session.add(g)
-    await db_session.commit()
+    g, _, _ = await create_game(db_session, "Other Game", api_key=OTHER_API_KEY)
     return g
 
 
@@ -123,6 +115,42 @@ async def confirm_match(client, headers, token, match_id, accept=True):
         f"/matches/{match_id}/confirm",
         headers={**headers, "X-Player-Token": token},
         json={"accept": accept},
+    )
+
+
+async def login(client, headers, device_id):
+    """Re-authenticate a device that no longer has its token."""
+    return await client.post(
+        "/players/login", headers=headers, json={"device_id": device_id}
+    )
+
+
+async def create_board(client, headers, key, name=None, **fields):
+    """Create a score board. `fields` overrides sort_direction / aggregation / type."""
+    return await client.post(
+        "/boards",
+        headers=headers,
+        json={"key": key, "name": name or key.title(), **fields},
+    )
+
+
+async def submit_score(client, headers, token, key, value, idempotency_key):
+    """Submit a score on behalf of the player owning `token`."""
+    return await client.post(
+        f"/boards/{key}/scores",
+        headers={**headers, "X-Player-Token": token, "Idempotency-Key": idempotency_key},
+        json={"value": value},
+    )
+
+
+async def board_top(client, headers, key, **params):
+    query = "&".join(f"{k}={v}" for k, v in params.items())
+    return await client.get(f"/boards/{key}/top{'?' + query if query else ''}", headers=headers)
+
+
+async def board_me(client, headers, token, key):
+    return await client.get(
+        f"/boards/{key}/me", headers={**headers, "X-Player-Token": token}
     )
 
 

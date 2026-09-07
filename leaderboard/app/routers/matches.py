@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -28,20 +29,15 @@ async def submit_match_result(
         raise ValidationError("winner_id and loser_id must be different")
     if player.id not in (body.winner_id, body.loser_id):
         raise NotAParticipantError("submitter must be a match participant")
-    existing = await db.execute(
-        select(Match).where(
-            Match.game_id == player.game_id,
-            Match.idempotency_key == idempotency_key,
-        )
-    )
-    existing_match = existing.scalar_one_or_none()
+    # Held as plain values: a rollback below expires every ORM object in the
+    # session, and touching an expired attribute afterwards triggers lazy IO.
+    player_id = player.id
+    game_id = player.game_id
+
+    existing_match = await _match_for_key(db, game_id, idempotency_key)
     if existing_match is not None:
-        return MatchResultResponse(
-            match_id=existing_match.id,
-            status=existing_match.status,
-            winner_rating=existing_match.winner_rating_after,
-            loser_rating=existing_match.loser_rating_after,
-        )
+        return _replay(existing_match, player_id)
+
     ids = (body.winner_id, body.loser_id)
     result = await db.execute(
         select(Player)
@@ -49,23 +45,66 @@ async def submit_match_result(
     )
     players = {p.id: p for p in result.scalars().all()}
     if len(players) != 2:
-        raise NotFoundError(f"Player with id {set(ids) - players.keys()} not found")
+        raise NotFoundError(
+            f"Player with id {set(ids) - players.keys()} not found",
+            code="PLAYER_NOT_FOUND",
+        )
     winner = players[body.winner_id]
     loser = players[body.loser_id]
     match = Match(
-        game_id=player.game_id,
+        game_id=game_id,
         winner_id=winner.id,
         loser_id=loser.id,
-        submitted_by_id=player.id,
+        submitted_by_id=player_id,
         status=MatchStatus.PENDING,
         idempotency_key=idempotency_key,
     )
     db.add(match)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # A concurrent retry with the same key won the race — which is exactly
+        # what the key is for. Read its row and answer as if we had written it,
+        # instead of surfacing the unique violation as a 500 on the very
+        # retries this mechanism exists to absorb.
+        await db.rollback()
+        existing_match = await _match_for_key(db, game_id, idempotency_key)
+        if existing_match is None:
+            raise
+        return _replay(existing_match, player_id)
 
     return MatchResultResponse(
         match_id=match.id,
         status=match.status,
+    )
+
+
+async def _match_for_key(db: AsyncSession, game_id, idempotency_key: str):
+    result = await db.execute(
+        select(Match).where(
+            Match.game_id == game_id,
+            Match.idempotency_key == idempotency_key,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+def _replay(match: Match, player_id: int) -> MatchResultResponse:
+    """Answer a repeated submission with the result already stored.
+
+    Keys are unique per game, so two players can pick the same one. Handing a
+    match back to someone who is not in it would leak another pair's result.
+    """
+    if player_id not in (match.winner_id, match.loser_id):
+        raise NotAParticipantError(
+            "Idempotency key already used by another match",
+            code="IDEMPOTENCY_KEY_CONFLICT",
+        )
+    return MatchResultResponse(
+        match_id=match.id,
+        status=match.status,
+        winner_rating=match.winner_rating_after,
+        loser_rating=match.loser_rating_after,
     )
 
 @router.post("/{match_id}/confirm", response_model=MatchResultResponse)
