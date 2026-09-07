@@ -53,23 +53,31 @@ Interactive API docs: http://localhost:8000/docs
 
 ## Registering a game
 
-There's no endpoint for this yet — insert the game directly into the database:
-
 ```bash
-docker compose exec db psql -U leaderboard -d leaderboard -c "
-WITH g AS (
-  INSERT INTO games (id, name, api_key, api_secret_hash, created_at)
-  VALUES (gen_random_uuid(), 'My Game', 'my-api-key', 'placeholder', now())
-  RETURNING id
-)
-INSERT INTO boards (game_id, key, name, type, sort_direction, aggregation, created_at)
-SELECT id, 'rating', 'Rating', 'RATING', 'DESC', 'BEST', now() FROM g;
-"
+docker compose exec web python -m app.cli create-game "My Game"
 ```
 
-The `api_key` value goes into the `x-api-key` header on every subsequent request.
+```
+game_id:    fb6918a3-1a20-468b-b022-2d3499eb7252
+api_key:    NGpigW2dJ5lq3HOaOt_afZV1tzvN6_iy-bQcTbbXyw8
 
-The second statement gives the game its rating board. Skip it and match results still work, but there is no endpoint to read the resulting rating from.
+api_secret: LOwB684YQr23i2Hi6nmHewXH6zY7KcehpJAQw2vPK-s
+This is shown once and cannot be recovered — store it now.
+```
+
+The `api_key` goes into the `x-api-key` header on every subsequent request. It is stored in clear and can always be read back from the database.
+
+`api_secret` cannot: only its hash is stored. It is not used by any endpoint yet — it is where privileged operations are headed, since `api_key` has to ship inside the game client and is therefore extractable from the binary.
+
+Registration also creates the game's `rating` board, in the same transaction. A game can never exist without one.
+
+The examples below use `my-api-key` for readability. To follow them verbatim, register with `--api-key my-api-key`.
+
+Running the same game in a second service later? Pass its key so one game keeps one key across the whole toolkit:
+
+```bash
+docker compose exec web python -m app.cli create-game "My Game" --api-key NGpigW2d...
+```
 
 ## Full cycle
 
@@ -222,7 +230,24 @@ Errors share one envelope:
 
 ## Development
 
-The repository includes `docker-compose.override.yml` for local development: source code is mounted into the container and uvicorn reloads on save. Compose picks the file up automatically — no rebuild needed when editing `.py` files.
+### Layout
+
+```
+toolkit_core/    shared infrastructure: settings, engine, error envelope,
+                 token hashing, the games table, header auth, registration
+leaderboard/     the service
+cloudsave/       skeleton, not yet runnable
+```
+
+`toolkit_core` deliberately does **not** export a `Base`. Alembic autogenerate reads `Base.metadata`, so a shared one would let a stray import chain make one service's migration create another service's tables. Each service declares its own and composes shared table shapes from mixins.
+
+Because the image needs the package next to the service, the build context is the repository root:
+
+```bash
+docker build -f leaderboard/Dockerfile .
+```
+
+The repository includes `docker-compose.override.yml` for local development: `leaderboard/` and `toolkit_core/` are both mounted into the container and uvicorn reloads on save. Compose picks the file up automatically — no rebuild needed when editing `.py` files.
 
 ### Tests
 
@@ -232,6 +257,15 @@ Tests run against a real PostgreSQL instance. SQLite isn't an option here becaus
 docker compose up -d db      # the database alone is enough
 cd leaderboard
 pip install -r requirements.txt
+pip install -e ../toolkit_core
+pytest -v
+```
+
+`toolkit_core` has its own suite, which needs no database:
+
+```bash
+cd toolkit_core
+pip install -e . -r requirements-dev.txt
 pytest -v
 ```
 
@@ -255,19 +289,19 @@ Listed deliberately — these are known and scheduled, not overlooked:
 - A lost `player_token` cannot be recovered. It is returned once and only its hash is stored, and re-registering the same `device_id` returns `409`, so a player who reinstalls the game loses their standing
 - No rate limiting — the service is not protected against automated score or rating manipulation
 - Score values are taken at face value; there is no validation that a result is achievable
-- No endpoint for registering a game; it must be inserted via SQL, together with its rating board
 - The rating delta is a constant in the source code
-- `x-api-key` has to ship inside the game client, where it can be extracted from the binary
+- `x-api-key` has to ship inside the game client, where it can be extracted from the binary. Board creation is authorised by that same key, so anyone who extracts it can add boards to your game. `api_secret` is issued for this and not yet enforced
+- Registration is a command, not an endpoint — fine for setup, not for a dashboard
 
 Not recommended for production use before v0.2.
 
 ## Roadmap
 
-**0.2** — player re-authentication, rate limiting, game registration endpoint, configurable rating, structured logging
+**0.2** — player re-authentication, admin operations behind `api_secret`, rate limiting, configurable rating, structured logging
 
 **0.3** — leaderboard caching (Redis), Unity SDK, basic match result validation, pluggable rating algorithms
 
-**1.0** — second service (Economy), matchmaking, shared conventions library, project documentation
+**1.0** — second service (Cloud Save), matchmaking, project documentation
 
 ## License
 
