@@ -1,9 +1,4 @@
-"""Header authentication, built per service.
 
-These are factories rather than plain dependencies because they need the
-service's own model classes and session dependency. The service wires them up
-once at import time; call sites see ordinary FastAPI dependencies.
-"""
 
 from fastapi import Depends, Header
 from sqlalchemy import select
@@ -32,11 +27,7 @@ def make_get_current_game(game_model, get_db):
 
 
 def make_get_current_player(player_model, get_db, get_current_game):
-    """Authenticates the player by `x-player-token`, scoped to the game.
 
-    The token is compared by hash: only the hash is stored, so a leaked
-    database does not hand out working tokens.
-    """
 
     async def get_current_player(
         x_player_token: str = Header(...),

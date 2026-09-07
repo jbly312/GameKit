@@ -9,7 +9,7 @@ BOARD_KEY_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,49}$"
 class PlayerRegisterRequest(BaseModel):
     device_id: str
     display_name: str | None = None
-class PlayerRegisterResponse(BaseModel):
+class PlayerCredentials(BaseModel):
     player_id: int
     player_token: str
 
@@ -82,3 +82,6 @@ class BoardMeResponse(BaseModel):
     display_name: str | None
     value: float | None
     rank: int | None
+
+class PlayerLoginRequest(BaseModel):
+    device_id: str

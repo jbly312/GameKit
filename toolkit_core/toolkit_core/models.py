@@ -19,12 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 
 class GameMixin:
-    """A game: the tenant every other row belongs to.
 
-    `api_key` is stored in clear because it is looked up on every request and
-    is not a secret from the game's own client. `api_secret_hash` holds only a
-    hash — the secret is shown once at registration and never recoverable.
-    """
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

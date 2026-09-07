@@ -118,6 +118,13 @@ async def confirm_match(client, headers, token, match_id, accept=True):
     )
 
 
+async def login(client, headers, device_id):
+    """Re-authenticate a device that no longer has its token."""
+    return await client.post(
+        "/players/login", headers=headers, json={"device_id": device_id}
+    )
+
+
 async def create_board(client, headers, key, name=None, **fields):
     """Create a score board. `fields` overrides sort_direction / aggregation / type."""
     return await client.post(

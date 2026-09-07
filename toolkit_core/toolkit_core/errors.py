@@ -7,13 +7,7 @@ and the situations every service can hit live here.
 
 
 class ToolkitError(Exception):
-    """Base for every error the API reports in the shared `error` envelope.
 
-    `code` is what a client branches on, so it describes the situation, not the
-    class. A generic class may therefore be raised with a specific code:
-
-        raise ConflictError("...", code="DEVICE_ALREADY_REGISTERED")
-    """
 
     status_code: int = 500
     code: str = "INTERNAL_SERVER_ERROR"
