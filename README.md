@@ -94,7 +94,22 @@ curl -X POST http://localhost:8000/players/register \
 {"player_id": 1, "player_token": "ZL-uPeRxrlveh7AIAWIJ5hkDpquA2zeh..."}
 ```
 
-`player_token` is returned exactly once and cannot be recovered — only its hash is stored. The client must persist it locally.
+`player_token` is returned exactly once — only its hash is stored — so the client persists it locally. If it is lost, the device gets a new one from `/players/login`:
+
+```bash
+curl -X POST http://localhost:8000/players/login \
+  -H "x-api-key: my-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"device_id": "device-001"}'
+```
+
+```json
+{"player_id": 1, "player_token": "9Kt3xNvQ2mHrLpWzYc4Fj7Bd..."}
+```
+
+The player keeps their id, name and standing; the previous token stops working. A device the service has never seen gets `404 PLAYER_NOT_FOUND` — the client's cue to register instead.
+
+So a client's startup is: use the stored token; on `401` call `/players/login`; on `404` call `/players/register`.
 
 Register a second player:
 
@@ -212,6 +227,7 @@ curl -X POST http://localhost:8000/matches/1/confirm \
 |---|---|---|
 | `GET` | `/health` | Service health check |
 | `POST` | `/players/register` | Register a player. Returns `409` if the device is already registered for this game |
+| `POST` | `/players/login` | Issue a fresh token for a known `device_id`, revoking the previous one |
 | `POST` | `/boards` | Create a board |
 | `GET` | `/boards` | List the game's boards |
 | `POST` | `/boards/{key}/scores` | Submit a score. Player token, `Idempotency-Key` |
@@ -286,8 +302,9 @@ FastAPI · SQLAlchemy 2.0 (async) · PostgreSQL 16 · asyncpg · Alembic · Dock
 
 Listed deliberately — these are known and scheduled, not overlooked:
 
-- A lost `player_token` cannot be recovered. It is returned once and only its hash is stored, and re-registering the same `device_id` returns `409`, so a player who reinstalls the game loses their standing
-- No rate limiting — the service is not protected against automated score or rating manipulation
+- A guest account is exactly as private as its `device_id`. `/players/login` takes nothing else, so whoever knows or guesses a `device_id` takes over that account. Real protection needs an external identity — Play Games or Sign in with Google — which the client can prove after a reinstall; that is not built yet
+- No rate limiting — the service is not protected against automated score or rating manipulation, and `/players/login` is a standing invitation to enumerate `device_id`s
+- One player is one device. There is no way to sign the same account in on a second device, and no way to merge two of them
 - Score values are taken at face value; there is no validation that a result is achievable
 - The rating delta is a constant in the source code
 - `x-api-key` has to ship inside the game client, where it can be extracted from the binary. Board creation is authorised by that same key, so anyone who extracts it can add boards to your game. `api_secret` is issued for this and not yet enforced
@@ -297,9 +314,9 @@ Not recommended for production use before v0.2.
 
 ## Roadmap
 
-**0.2** — player re-authentication, admin operations behind `api_secret`, rate limiting, configurable rating, structured logging
+**0.2** — admin operations behind `api_secret`, rate limiting, configurable rating, structured logging
 
-**0.3** — leaderboard caching (Redis), Unity SDK, basic match result validation, pluggable rating algorithms
+**0.3** — external identity (Sign in with Google) so an account outlives its device, leaderboard caching (Redis), Unity SDK, basic match result validation, pluggable rating algorithms
 
 **1.0** — second service (Cloud Save), matchmaking, project documentation
 
